@@ -5,7 +5,14 @@
 #include <panel.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pthread/qos.h>
 #include "word_art.h"
+#include "client.h"
+#include <pthread.h>
+#include <sys/socket.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <unistd.h>
 
 /*
  * 变量声明
@@ -41,6 +48,7 @@ int n_lines = sizeof(art_chat) / sizeof(char *);
 
 // 程序退出标志
 int is_running = 1;
+
 // 面板定义
 PanelData *panel_data_chat;
 PanelData *panel_data_menu;
@@ -199,7 +207,57 @@ int main() {
             top_panel(current_panel_data->panel);
             fresh();
             add_to_chat(current_panel_data);
+            werase(panel_data_chat->win);
             fresh();
+
+            // 定义一个线程ID变量
+            pthread_t tid;
+
+            // 客户端初始化
+            client_socket = setup_client();
+            pthread_create(&tid, NULL, receive_messages, panel_data_chat->win);
+
+            while (true) {
+                char message[BUF_SIZE];
+
+                int c = wgetch(panel_data_chat->win);
+
+                if (c == KEY_ENTER || c == '\n') {
+                    waddch(panel_data_chat->win, '\n');
+                    wrefresh(panel_data_chat->win);
+
+                    char buf[BUF_SIZE];
+                    int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", message);
+                    if (send(client_socket, buf, num_bytes, 0) == -1) {
+                        perror("Error sending message");
+                        exit(1);
+                    }
+
+                    if (strcmp(message, "quit\n") == 0) {
+                        is_running = true;
+                        break;
+                    }
+
+                    memset(message, 0, BUF_SIZE);
+                } else if (c == KEY_BACKSPACE || c == '\b' || c == 127) {
+                    int len = strlen(message);
+                    message[len - 1] = '\0';
+                    wdelch(panel_data_chat->win);
+                    wrefresh(panel_data_chat->win);
+                }else if(c == 'q'){
+                    break;
+                }else {
+                    int len = strlen(message);
+                    message[len] = c;
+                    message[len + 1] = '\0';
+                    waddch(panel_data_chat->win, c);
+                    wrefresh(panel_data_chat->win);
+                }
+            }
+
+            close(client_socket);
+            pthread_join(tid, NULL);
+
             werase(panel_data_chat->win);
             fresh();
         }
@@ -443,7 +501,7 @@ void add_to_sign_up(PanelData *panel_data) {
 }
 
 void add_to_chat(PanelData *panel_data) {
-    mvwprintw(panel_data->win, 14, 24, "chat");
+    mvwprintw(panel_data->win, 14, 24, "Press any key to chat.");
     mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit.");
     int input;
     switch (input = wgetch(panel_data->win)) {
@@ -451,10 +509,12 @@ void add_to_chat(PanelData *panel_data) {
             // 退出
             current_panel_data = panel_data_menu;
             break;
-        default:
-            // 继续聊天
+        default: {
+            // 进入聊天室
             current_panel_data = panel_data_chat;
+
             break;
+        }
     }
 }
 
