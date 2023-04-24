@@ -6,3 +6,7 @@ This is a CLI app for Group chat.
 ```gcc -o main main.c -lncurses -lpanel```  
 
 ```./main```
+
+
+### V.1.0.0
+- [x] Basic UI
