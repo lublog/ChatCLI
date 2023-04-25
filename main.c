@@ -68,7 +68,7 @@ PanelData *panel_data_sign_up;
 WINDOW *msg_win_others;
 WINDOW *msg_win_me;
 // 聊天窗口尺寸
-#define MAX_MESSAGES 20
+#define MAX_MESSAGES 50
 #define MSG_WIDTH 50
 #define INPUT_HEIGHT 3
 
@@ -254,7 +254,7 @@ int main() {
                 werase(panel_data_chat->win);
                 wrefresh(panel_data_chat->win);
 
-                int scroll_position = 0;
+//                int scroll_position = 0;
 //                // 定义聊天记录窗口大小
                 int board_height = LINES - INPUT_HEIGHT - 1;
 
@@ -268,13 +268,12 @@ int main() {
                 // 客户端初始化
                 client_socket = setup_client();
 
-                while (1) {
+                while (is_running) {
                     // 打印其他人的信息
                     msg_win_others = newwin(board_height, cols / 2, 0, 0);
 
                     // 打印输入框
                     mvwprintw(input_win, 1, 1, "Input your msg: ");
-                    wclrtoeol(input_win);
                     box(input_win, 0, 0);
                     wrefresh(input_win);
 
@@ -289,14 +288,18 @@ int main() {
                     // 当输入/q时，退出聊天室
                     if (strcmp(input, "/q") == 0) {
                         current_panel_data = panel_data_menu;
+                        is_running = 0;
                         pthread_join(tid, NULL);
 
                         break;
                     } else {
+                        // 拼接用户名
+                        char msg_cat[MSG_WIDTH+MAX_USERNAME_LENGTH];
+                        sprintf(msg_cat, "[%s]: %s", current_username, input);
                         // 发送信息到服务器
-                        send_msg(client_socket, input);
+                        send_msg(client_socket, msg_cat);
                         // 添加消息到聊天记录
-                        add_message(messages_me, &num_msgs_me, input);
+                        add_message(messages_me, &num_msgs_me, msg_cat);
 
                         print_messages(panel_data_chat->win, messages_me, num_msgs_me);
 
@@ -598,7 +601,6 @@ void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int
         } else{
             mvwprintw(msg_win, i + 1, 1, messages[i]);
         }
-//        mvwprintw(msg_win, i+1, cols/2, "Messages");
     }
 
     box(msg_win, 0, 0);
@@ -607,6 +609,7 @@ void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int
 
 // 添加信息到聊天记录
 void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const char *msg) {
+
     if (*num_msgs < MAX_MESSAGES) {
         strncpy(messages[*num_msgs], msg, MSG_WIDTH - 1);
         (*num_msgs)++;

@@ -6,8 +6,8 @@
 #define MAIN_CLIENT_H
 
 
-#define SERVER_ADDRESS "127.0.0.1"
-#define SERVER_PORT 8080
+#define SERVER_ADDRESS "121.89.240.66"
+#define SERVER_PORT 8888
 #define BUF_SIZE 1024
 
 int client_socket;

@@ -1,20 +1,30 @@
 # ChatCLI
-This is a CLI app for Group chat.
+This is a CLI app for Group chat which is developed use ```ncurses```.
 
-
-# to run it from source you need to do
-```gcc -o main main.c -lncurses -lpanel```  
-
-```./main```
-
-
-if your system is Centos or Redhat you need to install ncurses-devel package and glibc-devel package
-
-```sudo yum install glibc-devel```
-
-```sudo yum install ncurses-devel```
-
-run it with  
-```gcc -o main main.c -lncurses -lpanel -lpthread```
 ### V.1.0.0
 - [x] Basic UI
+- [x] Basic Chat
+## Build instructions
+
+### Pre-requisites
+* ncurses
+
+Install these and other required packages for C development from your package manager.
+
+**Debian/Ubuntu**
+~~~bash
+sudo apt-get install libncurses5-dev libncursesw5-dev
+~~~
+
+**Centos/Redhat**
+~~~bash
+sudo yum install ncurses-devel
+~~~
+
+### Build and run
+~~~bash
+git clone
+cd ChatCLI
+make
+./main
+~~~
