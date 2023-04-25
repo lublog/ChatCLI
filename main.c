@@ -33,6 +33,16 @@ struct PanelData {
     InputHandler handle_input;
 };
 
+typedef struct {
+    WINDOW *msg_win;
+    int *scroll_position;
+    int pad_height;
+    int board_height;
+    int cols;
+    int *messages;
+    int num_msgs;
+} ScrollData;
+
 // 光标开始绘制坐标
 int start_y;
 int start_x;
@@ -54,6 +64,16 @@ PanelData *panel_data_chat;
 PanelData *panel_data_menu;
 PanelData *panel_data_sign_in;
 PanelData *panel_data_sign_up;
+
+// 聊天窗口尺寸
+#define MAX_MESSAGES 20
+#define MSG_WIDTH 50
+#define INPUT_HEIGHT 3
+
+#ifndef BUTTON5_PRESSED
+#define BUTTON5_PRESSED (BUTTON4_PRESSED << 1)
+#endif
+
 /*
  * 函数声明
  */
@@ -103,6 +123,13 @@ void add_to_sign_up(PanelData *panel_data);
 void add_to_chat(PanelData *panel_data);
 
 void fresh(void);
+
+void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int num_msgs);
+
+void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const char *msg);
+
+int receive_message(char *msg);
+
 
 int main() {
     // 初始化 ncurses
@@ -204,62 +231,162 @@ int main() {
         }
 
         while (current_panel_data == panel_data_chat) {
+            curs_set(0);
             top_panel(current_panel_data->panel);
             fresh();
-            add_to_chat(current_panel_data);
-            werase(panel_data_chat->win);
-            fresh();
+            add_to_chat(panel_data_chat);
 
-            // 定义一个线程ID变量
-            pthread_t tid;
+            if (current_panel_data == panel_data_chat) {
+                werase(panel_data_chat->win);
+                wrefresh(panel_data_chat->win);
 
-            // 客户端初始化
-            client_socket = setup_client();
-            pthread_create(&tid, NULL, receive_messages, panel_data_chat->win);
+//                // 定义一个线程ID变量
+//                pthread_t tid;
+//
+//                // 客户端初始化
+//                client_socket = setup_client();
+//                pthread_create(&tid, NULL, receive_messages, panel_data_chat->win);
+//
+//                while (true) {
+//                    char message[BUF_SIZE];
+//
+//                    int c = wgetch(panel_data_chat->win);
+//
+//                    if (c == KEY_ENTER || c == '\n') {
+//                        waddch(panel_data_chat->win, '\n');
+//                        wrefresh(panel_data_chat->win);
+//
+//                        char buf[BUF_SIZE];
+//                        int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", message);
+//                        if (send(client_socket, buf, num_bytes, 0) == -1) {
+//                            perror("Error sending message");
+//                            exit(1);
+//                        }
+//
+//                        if (strcmp(message, "quit\n") == 0) {
+//                            is_running = false;
+//                            break;
+//                        }
+//
+//                        memset(message, 0, BUF_SIZE);
+//                    } else if (c == KEY_BACKSPACE || c == '\b' || c == 127) {
+//                        int len = strlen(message);
+//                        message[len - 1] = '\0';
+//                        wdelch(panel_data_chat->win);
+//                        wrefresh(panel_data_chat->win);
+//                    } else if (c == 'q') {
+//                        break;
+//                    } else {
+//                        int len = strlen(message);
+//                        message[len] = c;
+//                        message[len + 1] = '\0';
+//                        waddch(panel_data_chat->win, c);
+//                        wrefresh(panel_data_chat->win);
+//                    }
+//                }
+//
+//                close(client_socket);
+//                pthread_join(tid, NULL);
+//
+//                werase(panel_data_chat->win);
 
-            while (true) {
-                char message[BUF_SIZE];
 
-                int c = wgetch(panel_data_chat->win);
+                mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
 
-                if (c == KEY_ENTER || c == '\n') {
-                    waddch(panel_data_chat->win, '\n');
-                    wrefresh(panel_data_chat->win);
 
-                    char buf[BUF_SIZE];
-                    int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", message);
-                    if (send(client_socket, buf, num_bytes, 0) == -1) {
-                        perror("Error sending message");
-                        exit(1);
-                    }
+                // pad窗口大小
+                int pad_height = 150;
+                // 定义pad
+                WINDOW *msg_win = newpad(pad_height, cols);
+                scrollok(msg_win, TRUE);
+                idlok(msg_win, TRUE);
+                keypad(msg_win, TRUE);
+                scrollok(msg_win, TRUE);
+                // pad纵坐标位置
+                int scroll_position = 0;
 
-                    if (strcmp(message, "quit\n") == 0) {
-                        is_running = true;
+                // 定义聊天记录窗口大小
+                int board_height = LINES - INPUT_HEIGHT - 1;
+                // 此窗口仅仅展示聊天记录的边框
+                WINDOW *border_win = newwin(board_height, cols, 0, 0);
+                box(border_win, 0, 0);
+
+                // 定义输入窗口
+                WINDOW *input_win = newwin(INPUT_HEIGHT, cols, board_height, 0);
+                box(input_win, 0, 0);
+
+                refresh();
+                wrefresh(msg_win);
+                wrefresh(border_win);
+                wrefresh(input_win);
+
+                // 定义消息数组
+                char messages[MAX_MESSAGES][MSG_WIDTH];
+                int num_msgs = 0;
+
+
+                while (1) {
+                    // 打印输入框
+                    mvwprintw(input_win, 1, 1, "Input your msg: ");
+                    wclrtoeol(input_win);
+                    box(input_win, 0, 0);
+                    wrefresh(input_win);
+
+                    //定义输入消息
+                    char input[MSG_WIDTH - 1];
+                    echo();
+                    keypad(input_win, TRUE);
+                    // 获取输入的消息
+                    wgetnstr(input_win, input, MSG_WIDTH - 2);
+                    noecho();
+
+                    // 当输入/q时，退出聊天室
+                    if (strcmp(input, "/q") == 0) {
+                        current_panel_data = panel_data_menu;
                         break;
                     }
 
-                    memset(message, 0, BUF_SIZE);
-                } else if (c == KEY_BACKSPACE || c == '\b' || c == 127) {
-                    int len = strlen(message);
-                    message[len - 1] = '\0';
-                    wdelch(panel_data_chat->win);
-                    wrefresh(panel_data_chat->win);
-                }else if(c == 'q'){
-                    break;
-                }else {
-                    int len = strlen(message);
-                    message[len] = c;
-                    message[len + 1] = '\0';
-                    waddch(panel_data_chat->win, c);
-                    wrefresh(panel_data_chat->win);
+                    // 添加消息到聊天记录
+                    add_message(messages, &num_msgs, input);
+                    print_messages(msg_win, messages, num_msgs);
+                    prefresh(msg_win, scroll_position, 0, 0, 0, board_height - 3, cols - 4);
+
+                    // 当接收到其他用户的消息时：
+                    //   1. 将其添加到消息数组中
+                    //   2. 调用print_messages()函数更新消息显示区域
+                    // 当接收到其他用户的消息时：
+                    char received_msg[MSG_WIDTH];
+                    if (receive_message(received_msg)) {
+                        add_message(messages, &num_msgs, received_msg);
+                        print_messages(msg_win, messages, num_msgs);
+                    }
+
+//                    MEVENT event;
+//                    int ch;
+//
+//                    ch = wgetch(msg_win);
+//
+//                    if (ch == KEY_MOUSE) {
+//                        if (getmouse(&event) == OK) {
+//                            if (event.bstate & BUTTON4_PRESSED && scroll_position > 0) { // 向上滚动
+//                                scroll_position--;
+//                            } else if (event.bstate & BUTTON4_PRESSED && scroll_position < pad_height - LINES) { // 向下滚动
+//                                scroll_position++;
+//                            } else if (event.bstate & BUTTON1_PRESSED) {
+//                            }
+//                            prefresh(msg_win, scroll_position, 0, 0, 0, board_height - 3, COLS - 1);
+//                        }
+//                    }
+
+
                 }
+                delwin(msg_win);
+                delwin(input_win);
+                delwin(border_win);
+
+            } else {
+                werase(panel_data_chat->win);
             }
-
-            close(client_socket);
-            pthread_join(tid, NULL);
-
-            werase(panel_data_chat->win);
-            fresh();
         }
     }
     // 释放内存
@@ -420,12 +547,12 @@ void add_to_sign_in(PanelData *panel_data) {
     if (login_user(input_str) == 0) {
         mvwprintw(panel_data->win, rows - 3, 0, "Your user name is: %s", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press 'c' to Chat!");
-        mvwprintw(panel_data->win, rows-1, 0, "Press 'q' to quit!");
+        mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
         mvwprintw(panel_data->win, 2, 2, "return 0");
     } else {
         mvwprintw(panel_data->win, rows - 3, 0, "The user name does not exist", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press any key to sign up.");
-        mvwprintw(panel_data->win, rows-1, 0, "Press 'q' to quit!");
+        mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
     }
 
     // 更新面板堆栈
@@ -470,12 +597,12 @@ void add_to_sign_up(PanelData *panel_data) {
     if (register_user(input_str) == 0) {
         mvwprintw(panel_data->win, rows - 3, 0, "Your user name is: %s", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press any key to sign in!");
-        mvwprintw(panel_data->win, rows-1, 0, "Press 'q' to quit!");
+        mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
         mvwprintw(panel_data->win, 2, 2, "return 0");
     } else {
         mvwprintw(panel_data->win, rows - 3, 0, "Your user name is: %s, but it have been used!", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press 'n' to type again.");
-        mvwprintw(panel_data->win, rows-1, 0, "Press 'q' to quit!");
+        mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
     }
 
     // 更新面板堆栈
@@ -503,6 +630,8 @@ void add_to_sign_up(PanelData *panel_data) {
 void add_to_chat(PanelData *panel_data) {
     mvwprintw(panel_data->win, 14, 24, "Press any key to chat.");
     mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit.");
+
+    wrefresh(panel_data->win);
     int input;
     switch (input = wgetch(panel_data->win)) {
         case 'q':
@@ -519,7 +648,39 @@ void add_to_chat(PanelData *panel_data) {
 }
 
 void fresh(void) {
-// 刷新所有面板
+// 刷新面板排列顺序
     update_panels();
     doupdate();
+}
+
+void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int num_msgs) {
+    werase(msg_win);
+    for (int i = 0; i < num_msgs; i++) {
+        mvwprintw(msg_win, i + 1, 1, messages[i]);
+    }
+    box(msg_win, 0, 0);
+    wrefresh(msg_win);
+}
+
+// 添加信息到聊天记录
+void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const char *msg) {
+    if (*num_msgs < MAX_MESSAGES) {
+        strncpy(messages[*num_msgs], msg, MSG_WIDTH - 1);
+        (*num_msgs)++;
+    } else {
+        for (int i = 0; i < MAX_MESSAGES - 1; i++) {
+            strncpy(messages[i], messages[i + 1], MSG_WIDTH - 1);
+        }
+        strncpy(messages[MAX_MESSAGES - 1], msg, MSG_WIDTH - 1);
+    }
+}
+
+// 模拟接收到其他用户的消息
+int receive_message(char *msg) {
+    static int counter = 0;
+    if (counter++ % 10 == 0) {
+        strncpy(msg, "lu: ", MSG_WIDTH - 1);
+        return 1;
+    }
+    return 0;
 }
