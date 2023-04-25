@@ -16,5 +16,5 @@ int client_socket;
 
 int setup_client();
 void* receive_messages(void * win_output);
-//int send_msg(int sock, char *msg);
+int send_msg(int sock, char *msg);
 #endif //MAIN_CLIENT_H

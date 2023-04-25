@@ -65,63 +65,13 @@ void* receive_messages(void * win_output) {
     pthread_exit(NULL);
 }
 
-//int send_msg(int sock, char *msg) {
-//    char buf[BUF_SIZE];
-//    int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", msg);
-//    if (send(sock, buf, num_bytes, 0) == -1) {
-//        perror("Error sending message");
-//        exit(1);
-//    }
-//    return 0;
-//}
-
-//int main() {
-//    // 定义一个线程ID变量
-//    pthread_t tid;
-//
-//    // 客户端初始化
-//    client_socket = setup_client();
-//    pthread_create(&tid, NULL, receive_messages, NULL);
-//
-//    while (true) {
-//        char message[BUF_SIZE];
-//
-//        int c = wgetch(win_input);
-//
-//        if (c == KEY_ENTER || c == '\n') {
-//            waddch(win_output, '\n');
-//            wrefresh(win_output);
-//
-//            char buf[BUF_SIZE];
-//            int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", message);
-//            if (send(client_socket, buf, num_bytes, 0) == -1) {
-//                perror("Error sending message");
-//                exit(1);
-//            }
-//
-//            if (strcmp(message, "quit\n") == 0) {
-//                exit_flag = true;
-//                break;
-//            }
-//
-//            memset(message, 0, BUF_SIZE);
-//        } else if (c == KEY_BACKSPACE || c == '\b' || c == 127) {
-//            int len = strlen(message);
-//            message[len - 1] = '\0';
-//            wdelch(win_input);
-//            wrefresh(win_input);
-//        } else {
-//            int len = strlen(message);
-//            message[len] = c;
-//            message[len + 1] = '\0';
-//            waddch(win_input, c);
-//            wrefresh(win_input);
-//        }
-//    }
-//
-//    close(client_socket);
-//    pthread_join(tid, NULL);
-//
-//    return 0;
-//}
+int send_msg(int sock, char *msg) {
+    char buf[BUF_SIZE];
+    int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", msg);
+    if (send(sock, buf, num_bytes, 0) == -1) {
+        perror("Error sending message");
+        exit(1);
+    }
+    return 0;
+}
 

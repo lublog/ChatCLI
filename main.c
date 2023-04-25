@@ -240,60 +240,6 @@ int main() {
                 werase(panel_data_chat->win);
                 wrefresh(panel_data_chat->win);
 
-//                // 定义一个线程ID变量
-//                pthread_t tid;
-//
-//                // 客户端初始化
-//                client_socket = setup_client();
-//                pthread_create(&tid, NULL, receive_messages, panel_data_chat->win);
-//
-//                while (true) {
-//                    char message[BUF_SIZE];
-//
-//                    int c = wgetch(panel_data_chat->win);
-//
-//                    if (c == KEY_ENTER || c == '\n') {
-//                        waddch(panel_data_chat->win, '\n');
-//                        wrefresh(panel_data_chat->win);
-//
-//                        char buf[BUF_SIZE];
-//                        int num_bytes = snprintf(buf, BUF_SIZE, "%s\n", message);
-//                        if (send(client_socket, buf, num_bytes, 0) == -1) {
-//                            perror("Error sending message");
-//                            exit(1);
-//                        }
-//
-//                        if (strcmp(message, "quit\n") == 0) {
-//                            is_running = false;
-//                            break;
-//                        }
-//
-//                        memset(message, 0, BUF_SIZE);
-//                    } else if (c == KEY_BACKSPACE || c == '\b' || c == 127) {
-//                        int len = strlen(message);
-//                        message[len - 1] = '\0';
-//                        wdelch(panel_data_chat->win);
-//                        wrefresh(panel_data_chat->win);
-//                    } else if (c == 'q') {
-//                        break;
-//                    } else {
-//                        int len = strlen(message);
-//                        message[len] = c;
-//                        message[len + 1] = '\0';
-//                        waddch(panel_data_chat->win, c);
-//                        wrefresh(panel_data_chat->win);
-//                    }
-//                }
-//
-//                close(client_socket);
-//                pthread_join(tid, NULL);
-//
-//                werase(panel_data_chat->win);
-
-
-                mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
-
-
                 // pad窗口大小
                 int pad_height = 150;
                 // 定义pad
@@ -324,6 +270,12 @@ int main() {
                 char messages[MAX_MESSAGES][MSG_WIDTH];
                 int num_msgs = 0;
 
+                // 定义一个线程ID变量
+                pthread_t tid;
+
+                // 客户端初始化
+                client_socket = setup_client();
+                pthread_create(&tid, NULL, receive_messages, msg_win);
 
                 while (1) {
                     // 打印输入框
@@ -344,6 +296,9 @@ int main() {
                     if (strcmp(input, "/q") == 0) {
                         current_panel_data = panel_data_menu;
                         break;
+                    } else{
+                        // 发送信息到服务器
+                        send_msg(client_socket, input);
                     }
 
                     // 添加消息到聊天记录
@@ -361,22 +316,6 @@ int main() {
                         print_messages(msg_win, messages, num_msgs);
                     }
 
-//                    MEVENT event;
-//                    int ch;
-//
-//                    ch = wgetch(msg_win);
-//
-//                    if (ch == KEY_MOUSE) {
-//                        if (getmouse(&event) == OK) {
-//                            if (event.bstate & BUTTON4_PRESSED && scroll_position > 0) { // 向上滚动
-//                                scroll_position--;
-//                            } else if (event.bstate & BUTTON4_PRESSED && scroll_position < pad_height - LINES) { // 向下滚动
-//                                scroll_position++;
-//                            } else if (event.bstate & BUTTON1_PRESSED) {
-//                            }
-//                            prefresh(msg_win, scroll_position, 0, 0, 0, board_height - 3, COLS - 1);
-//                        }
-//                    }
 
 
                 }
@@ -384,6 +323,8 @@ int main() {
                 delwin(input_win);
                 delwin(border_win);
 
+                close(client_socket);
+                pthread_join(tid, NULL);
             } else {
                 werase(panel_data_chat->win);
             }
@@ -673,14 +614,4 @@ void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const ch
         }
         strncpy(messages[MAX_MESSAGES - 1], msg, MSG_WIDTH - 1);
     }
-}
-
-// 模拟接收到其他用户的消息
-int receive_message(char *msg) {
-    static int counter = 0;
-    if (counter++ % 10 == 0) {
-        strncpy(msg, "lu: ", MSG_WIDTH - 1);
-        return 1;
-    }
-    return 0;
 }
