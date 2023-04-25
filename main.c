@@ -271,10 +271,6 @@ int main() {
                 while (1) {
                     // 打印其他人的信息
                     msg_win_others = newwin(board_height, cols / 2, 0, 0);
-//                    box(msg_win_others, 0, 0);
-
-//                    msg_win_me = newwin(board_height, cols / 2, 0, cols / 2);
-//                    box(msg_win_me, 0, 0);
 
                     // 打印输入框
                     mvwprintw(input_win, 1, 1, "Input your msg: ");
@@ -632,9 +628,6 @@ void *receive_messages(void *win_output) {
             buf[num_bytes] = '\0';
 
             add_message(messages_others, &num_msgs_others, buf);
-//            for (int i = 0; i < num_msgs_others; ++i) {
-//                mvwprintw(win_output, i + 2, 1, messages_others[i]);
-//            }
             print_messages(msg_win_others, messages_others, num_msgs_others);
 
             wrefresh(win_output);
