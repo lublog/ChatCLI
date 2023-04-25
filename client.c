@@ -45,25 +45,7 @@ int setup_client() {
     return client_socket;
 }
 
-void* receive_messages(void * win_output) {
-    char buf[BUF_SIZE];
-    int num_bytes;
 
-    while (!exit_flag) {
-        if ((num_bytes = recv(client_socket, buf, BUF_SIZE, 0)) > 0) {
-            buf[num_bytes] = '\0';
-            waddstr(win_output, buf);
-            wrefresh(win_output);
-        }
-
-        if (num_bytes == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
-            perror("Error receiving message");
-            exit(1);
-        }
-    }
-
-    pthread_exit(NULL);
-}
 
 int send_msg(int sock, char *msg) {
     char buf[BUF_SIZE];

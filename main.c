@@ -65,6 +65,8 @@ PanelData *panel_data_menu;
 PanelData *panel_data_sign_in;
 PanelData *panel_data_sign_up;
 
+WINDOW *msg_win_others;
+WINDOW *msg_win_me;
 // 聊天窗口尺寸
 #define MAX_MESSAGES 20
 #define MSG_WIDTH 50
@@ -73,6 +75,15 @@ PanelData *panel_data_sign_up;
 #ifndef BUTTON5_PRESSED
 #define BUTTON5_PRESSED (BUTTON4_PRESSED << 1)
 #endif
+
+
+// 定义消息数组(me)
+char messages_me[MAX_MESSAGES][MSG_WIDTH];
+int num_msgs_me = 0;
+
+// 定义消息数组(others)
+char messages_others[MAX_MESSAGES][MSG_WIDTH];
+int num_msgs_others = 0;
 
 /*
  * 函数声明
@@ -128,7 +139,7 @@ void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int
 
 void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const char *msg);
 
-int receive_message(char *msg);
+void *receive_messages(void *win_output);
 
 
 int main() {
@@ -207,7 +218,7 @@ int main() {
                     break;
             }
             werase(panel_data_menu->win);
-            fresh();
+            wrefresh(panel_data_menu->win);
         }
 
         while (current_panel_data == panel_data_sign_up) {
@@ -217,7 +228,7 @@ int main() {
             fresh();
 
             werase(panel_data_sign_up->win);
-            fresh();
+            wrefresh(panel_data_sign_up->win);
         }
         while (current_panel_data == panel_data_sign_in) {
             top_panel(current_panel_data->panel);
@@ -226,7 +237,7 @@ int main() {
             fresh();
 
             werase(panel_data_sign_in->win);
-            fresh();
+            wrefresh(panel_data_sign_in->win);
 
         }
 
@@ -240,44 +251,28 @@ int main() {
                 werase(panel_data_chat->win);
                 wrefresh(panel_data_chat->win);
 
-                // pad窗口大小
-                int pad_height = 150;
-                // 定义pad
-                WINDOW *msg_win = newpad(pad_height, cols);
-                scrollok(msg_win, TRUE);
-                idlok(msg_win, TRUE);
-                keypad(msg_win, TRUE);
-                scrollok(msg_win, TRUE);
-                // pad纵坐标位置
                 int scroll_position = 0;
-
-                // 定义聊天记录窗口大小
+//                // 定义聊天记录窗口大小
                 int board_height = LINES - INPUT_HEIGHT - 1;
-                // 此窗口仅仅展示聊天记录的边框
-                WINDOW *border_win = newwin(board_height, cols, 0, 0);
-                box(border_win, 0, 0);
 
                 // 定义输入窗口
                 WINDOW *input_win = newwin(INPUT_HEIGHT, cols, board_height, 0);
                 box(input_win, 0, 0);
-
-                refresh();
-                wrefresh(msg_win);
-                wrefresh(border_win);
-                wrefresh(input_win);
-
-                // 定义消息数组
-                char messages[MAX_MESSAGES][MSG_WIDTH];
-                int num_msgs = 0;
 
                 // 定义一个线程ID变量
                 pthread_t tid;
 
                 // 客户端初始化
                 client_socket = setup_client();
-                pthread_create(&tid, NULL, receive_messages, msg_win);
 
                 while (1) {
+                    // 打印其他人的信息
+                    msg_win_others = newwin(board_height, cols / 2, 0, 0);
+//                    box(msg_win_others, 0, 0);
+
+//                    msg_win_me = newwin(board_height, cols / 2, 0, cols / 2);
+//                    box(msg_win_me, 0, 0);
+
                     // 打印输入框
                     mvwprintw(input_win, 1, 1, "Input your msg: ");
                     wclrtoeol(input_win);
@@ -296,32 +291,32 @@ int main() {
                     if (strcmp(input, "/q") == 0) {
                         current_panel_data = panel_data_menu;
                         break;
-                    } else{
+                    } else {
                         // 发送信息到服务器
                         send_msg(client_socket, input);
                     }
 
                     // 添加消息到聊天记录
-                    add_message(messages, &num_msgs, input);
-                    print_messages(msg_win, messages, num_msgs);
-                    prefresh(msg_win, scroll_position, 0, 0, 0, board_height - 3, cols - 4);
+                    add_message(messages_me, &num_msgs_me, input);
 
-                    // 当接收到其他用户的消息时：
-                    //   1. 将其添加到消息数组中
-                    //   2. 调用print_messages()函数更新消息显示区域
-                    // 当接收到其他用户的消息时：
-                    char received_msg[MSG_WIDTH];
-                    if (receive_message(received_msg)) {
-                        add_message(messages, &num_msgs, received_msg);
-                        print_messages(msg_win, messages, num_msgs);
-                    }
+                    print_messages(panel_data_chat->win, messages_me, num_msgs_me);
+
+                    pthread_create(&tid, NULL, receive_messages, msg_win_others);
+//                    print_messages(msg_win_others, messages_others, num_msgs_others);
+                    // 刷新聊天记录
+
+                    wrefresh(panel_data_chat->win);
+                    wrefresh(msg_win_others);
+//                    wrefresh(msg_win_me);
+
 
 
 
                 }
-                delwin(msg_win);
+
+                delwin(msg_win_others);
+//                delwin(msg_win_me);
                 delwin(input_win);
-                delwin(border_win);
 
                 close(client_socket);
                 pthread_join(tid, NULL);
@@ -597,8 +592,14 @@ void fresh(void) {
 void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int num_msgs) {
     werase(msg_win);
     for (int i = 0; i < num_msgs; i++) {
-        mvwprintw(msg_win, i + 1, 1, messages[i]);
+        if(messages == messages_me) {
+            mvwprintw(msg_win, i + 1, cols / 2, messages[i]);
+        } else{
+            mvwprintw(msg_win, i + 1, 1, messages[i]);
+        }
+//        mvwprintw(msg_win, i+1, cols/2, "Messages");
     }
+
     box(msg_win, 0, 0);
     wrefresh(msg_win);
 }
@@ -614,4 +615,31 @@ void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const ch
         }
         strncpy(messages[MAX_MESSAGES - 1], msg, MSG_WIDTH - 1);
     }
+}
+
+
+void *receive_messages(void *win_output) {
+    char buf[BUF_SIZE];
+    int num_bytes;
+
+    while (is_running) {
+        if ((num_bytes = recv(client_socket, buf, BUF_SIZE, 0)) > 0) {
+            buf[num_bytes] = '\0';
+
+            add_message(messages_others, &num_msgs_others, buf);
+//            for (int i = 0; i < num_msgs_others; ++i) {
+//                mvwprintw(win_output, i + 2, 1, messages_others[i]);
+//            }
+            print_messages(msg_win_others, messages_others, num_msgs_others);
+
+            wrefresh(win_output);
+        }
+
+        if (num_bytes == -1 && errno != EAGAIN && errno != EWOULDBLOCK) {
+            perror("Error receiving message");
+            exit(1);
+        }
+    }
+
+    pthread_exit(NULL);
 }
