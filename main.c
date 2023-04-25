@@ -85,6 +85,9 @@ int num_msgs_me = 0;
 char messages_others[MAX_MESSAGES][MSG_WIDTH];
 int num_msgs_others = 0;
 
+// 当前用户名
+char current_username[MAX_USERNAME_LENGTH];
+
 /*
  * 函数声明
  */
@@ -290,24 +293,26 @@ int main() {
                     // 当输入/q时，退出聊天室
                     if (strcmp(input, "/q") == 0) {
                         current_panel_data = panel_data_menu;
+                        pthread_join(tid, NULL);
+
                         break;
                     } else {
                         // 发送信息到服务器
                         send_msg(client_socket, input);
+                        // 添加消息到聊天记录
+                        add_message(messages_me, &num_msgs_me, input);
+
+                        print_messages(panel_data_chat->win, messages_me, num_msgs_me);
+
+                        pthread_create(&tid, NULL, receive_messages, msg_win_others);
+                        print_messages(msg_win_others, messages_others, num_msgs_others);
+                        // 刷新聊天记录
+
+                        wrefresh(panel_data_chat->win);
+                        wrefresh(msg_win_others);
                     }
 
-                    // 添加消息到聊天记录
-                    add_message(messages_me, &num_msgs_me, input);
 
-                    print_messages(panel_data_chat->win, messages_me, num_msgs_me);
-
-                    pthread_create(&tid, NULL, receive_messages, msg_win_others);
-//                    print_messages(msg_win_others, messages_others, num_msgs_others);
-                    // 刷新聊天记录
-
-                    wrefresh(panel_data_chat->win);
-                    wrefresh(msg_win_others);
-//                    wrefresh(msg_win_me);
 
 
 
@@ -319,7 +324,6 @@ int main() {
                 delwin(input_win);
 
                 close(client_socket);
-                pthread_join(tid, NULL);
             } else {
                 werase(panel_data_chat->win);
             }
@@ -369,7 +373,7 @@ PanelData *init_windows(InputHandler handle_input) {
     // 设置键盘响应模式
     keypad(panel_data->win, TRUE);
 
-    mvwprintw(panel_data->win, 2, 2, "y:%d, x: %d", LINES, COLS);
+//    mvwprintw(panel_data->win, 2, 2, "y:%d, x: %d", LINES, COLS);
     return panel_data;
 }
 
@@ -485,6 +489,7 @@ void add_to_sign_in(PanelData *panel_data) {
         mvwprintw(panel_data->win, rows - 2, 0, "Press 'c' to Chat!");
         mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
         mvwprintw(panel_data->win, 2, 2, "return 0");
+        strcpy(current_username, input_str);
     } else {
         mvwprintw(panel_data->win, rows - 3, 0, "The user name does not exist", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press any key to sign up.");
@@ -564,7 +569,7 @@ void add_to_sign_up(PanelData *panel_data) {
 }
 
 void add_to_chat(PanelData *panel_data) {
-    mvwprintw(panel_data->win, 14, 24, "Press any key to chat.");
+    mvwprintw(panel_data->win, rows/2, (cols-25)/2, "Your user name is : %s", current_username);
     mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit.");
 
     wrefresh(panel_data->win);
