@@ -1,6 +1,4 @@
-//
-// Created by 路遥 on 2023/4/24.
-//
+
 #include <ncurses.h>
 #include <panel.h>
 #include <stdlib.h>
@@ -10,7 +8,6 @@
 #include "client.h"
 #include <pthread.h>
 #include <sys/socket.h>
-#include <fcntl.h>
 #include <errno.h>
 #include <unistd.h>
 
@@ -118,6 +115,12 @@ void add_to_sign_up(PanelData *panel_data);
 
 void add_to_chat(PanelData *panel_data);
 
+/*
+ * ncurses 有窗口和面板两个屏幕概念, 可以在窗口上绘制文字, 但是不能处理层叠问题,
+ * 面板可以处理层叠问题, 但是不能绘制文字, 每一个panel只能关联一个窗口,
+ * fresh()负责更新面板的层叠顺序, 例如: top_panel(menu) 将menu置于最顶端,
+ * 然后调用fresh()更新层叠顺序, 使得menu在最顶端.
+ */
 void fresh(void);
 
 void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int num_msgs);
@@ -131,31 +134,29 @@ int main() {
     // 初始化 ncurses
     init_ncurses();
 
-    // 初始化menu, sign_in, sign_up, chat窗口
+    // 初始化menu, sign_in, sign_up, chat panel
     panel_data_menu = init_windows(rows, cols);
     panel_data_sign_in = init_windows(rows, cols);
     panel_data_sign_up = init_windows(rows, cols);
     panel_data_chat = init_windows(rows, cols);
 
-
-    current_panel_data = panel_data_menu;
-    top_panel(panel_data_menu->panel);
-    fresh();
-
+    // 初始化与选项(登录/注册)相关的变量
     char *options[] = {"Sign in", "Sign up"};
     int option_count = sizeof(options) / sizeof(char *);
     int current_option = 0;
 
+    // 设置当前面板为menu
+    current_panel_data = panel_data_menu;
+
     while (is_running == 1) {
         while (current_panel_data == panel_data_menu) {
+            // 显示menu面板
             top_panel(panel_data_menu->panel);
-            fresh();
+
             // 添加静态内容到menu窗口
             add_to_menu(panel_data_menu);
 
-            // 添加动态内容到menu窗口
-            // 打印选项
-
+            // 添加动态内容(选项)到menu窗口
             for (int i = 0; i < option_count; i++) {
                 if (current_option == i) {
                     wattron(panel_data_menu->win, A_REVERSE);  // 被选中的选项加粗
@@ -168,7 +169,7 @@ int main() {
                 }
                 wattroff(panel_data_menu->win, A_REVERSE);
             }
-            fresh();
+            wrefresh(panel_data_menu->win);
 
             int input = wgetch(panel_data_menu->win);
             // 处理用户输入
@@ -190,15 +191,9 @@ int main() {
                 case '\n':
                     if (current_option == 0) {
                         current_panel_data = panel_data_sign_in;
-                        top_panel(current_panel_data->panel);
-
-                        add_to_sign_in(current_panel_data);
 
                     } else if (current_option == 1) {
                         current_panel_data = panel_data_sign_up;
-                        top_panel(current_panel_data->panel);
-
-                        add_to_sign_up(current_panel_data);
                     }
                     break;
             }
@@ -210,7 +205,6 @@ int main() {
             top_panel(current_panel_data->panel);
             fresh();
             add_to_sign_up(current_panel_data);
-            fresh();
 
             werase(panel_data_sign_up->win);
             wrefresh(panel_data_sign_up->win);
@@ -219,7 +213,6 @@ int main() {
             top_panel(current_panel_data->panel);
             fresh();
             add_to_sign_in(current_panel_data);
-            fresh();
 
             werase(panel_data_sign_in->win);
             wrefresh(panel_data_sign_in->win);
@@ -431,9 +424,7 @@ void add_to_sign_in(PanelData *panel_data) {
 
     mvwprintw(panel_data->win, rows / 2, (cols - 20) / 2, "Please input your name:");
 
-    // 更新面板堆栈
-    update_panels();
-    doupdate();
+    wrefresh(panel_data->win);
 
     // 创建输入框
     mvgetnstr(rows / 2 + 1, (cols - INPUT_MAX) / 2, input_str, INPUT_MAX);
@@ -451,14 +442,12 @@ void add_to_sign_in(PanelData *panel_data) {
         mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
     }
 
-    // 更新面板堆栈
-    update_panels();
-    doupdate();
+    wrefresh(panel_data->win);
+
     int input;
     switch (input = wgetch(panel_data->win)) {
         case 'c':
             // 进入聊天室
-            werase(current_panel_data->win);
             current_panel_data = panel_data_chat;
             break;
         case 'q':
@@ -467,7 +456,6 @@ void add_to_sign_in(PanelData *panel_data) {
             break;
         default:
             // 进入注册
-            werase(current_panel_data->win);
             current_panel_data = panel_data_sign_up;
             break;
     }
@@ -482,9 +470,7 @@ void add_to_sign_up(PanelData *panel_data) {
 
     mvwprintw(panel_data->win, rows / 2, (cols - 20) / 2, "Please input your name:");
 
-    // 更新面板堆栈
-    update_panels();
-    doupdate();
+    wrefresh(panel_data->win);
 
     // 创建输入框
     mvgetnstr(rows / 2 + 1, (cols - INPUT_MAX) / 2, input_str, INPUT_MAX);
@@ -501,14 +487,12 @@ void add_to_sign_up(PanelData *panel_data) {
         mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
     }
 
-    // 更新面板堆栈
-    update_panels();
-    doupdate();
+    wrefresh(panel_data->win);
+
     int input;
     switch (input = wgetch(panel_data->win)) {
         case 'n':
             // 继续注册
-            werase(current_panel_data->win);
             current_panel_data = panel_data_sign_up;
             break;
         case 'q':
@@ -517,10 +501,9 @@ void add_to_sign_up(PanelData *panel_data) {
             break;
         default:
             // 进入登陆
-            werase(current_panel_data->win);
             current_panel_data = panel_data_sign_in;
-            break;
     }
+
 }
 
 void add_to_chat(PanelData *panel_data) {
@@ -528,6 +511,7 @@ void add_to_chat(PanelData *panel_data) {
     mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit.");
 
     wrefresh(panel_data->win);
+
     int input;
     switch (input = wgetch(panel_data->win)) {
         case 'q':
@@ -544,7 +528,6 @@ void add_to_chat(PanelData *panel_data) {
 }
 
 void fresh(void) {
-// 刷新面板排列顺序
     update_panels();
     doupdate();
 }
@@ -600,3 +583,4 @@ void *receive_messages(void *win_output) {
 
     pthread_exit(NULL);
 }
+
