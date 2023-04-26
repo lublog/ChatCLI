@@ -44,7 +44,7 @@ static PanelData *current_panel_data;
 int n_lines = sizeof(art_chat) / sizeof(char *);
 
 // 程序退出标志
-int is_running = 1;
+bool is_running = true;
 
 // 面板定义
 PanelData *panel_data_chat;
@@ -148,7 +148,7 @@ int main() {
     // 设置当前面板为menu
     current_panel_data = panel_data_menu;
 
-    while (is_running == 1) {
+    while (is_running) {
         while (current_panel_data == panel_data_menu) {
             // 显示menu面板
             top_panel(panel_data_menu->panel);
@@ -262,7 +262,7 @@ int main() {
                     // 当输入/q时，退出聊天室
                     if (strcmp(input, "/q") == 0) {
                         current_panel_data = panel_data_menu;
-                        is_running = 0;
+                        is_running = false;
                         pthread_join(tid, NULL);
 
                         break;
