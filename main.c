@@ -25,23 +25,13 @@
 // 面板结构体
 typedef struct PanelData PanelData; // 前向声明
 
-typedef void (*InputHandler)(int, PanelData *);
-
 struct PanelData {
     WINDOW *win;
     PANEL *panel;
-    InputHandler handle_input;
+    int height;
+    int width;
 };
 
-typedef struct {
-    WINDOW *msg_win;
-    int *scroll_position;
-    int pad_height;
-    int board_height;
-    int cols;
-    int *messages;
-    int num_msgs;
-} ScrollData;
 
 // 光标开始绘制坐标
 int start_y;
@@ -98,15 +88,7 @@ char current_username[MAX_USERNAME_LENGTH];
  */
 void init_ncurses();
 
-PanelData *init_windows(InputHandler handle_input);
-
-void handle_input_menu(int ch, PanelData *panel_data);
-
-void handle_input_sign_in(int ch, PanelData *panel_data);
-
-void handle_input_sign_up(int ch, PanelData *panel_data);
-
-void handle_input_chat(int ch, PanelData *panel_data);
+PanelData *init_windows(int height, int width);
 
 void print_art(WINDOW *win, const char *art_word[], int lines, int start_y, int start_x);
 
@@ -150,10 +132,10 @@ int main() {
     init_ncurses();
 
     // 初始化menu, sign_in, sign_up, chat窗口
-    panel_data_menu = init_windows(handle_input_menu);
-    panel_data_sign_in = init_windows(handle_input_sign_in);
-    panel_data_sign_up = init_windows(handle_input_sign_up);
-    panel_data_chat = init_windows(handle_input_chat);
+    panel_data_menu = init_windows(rows, cols);
+    panel_data_sign_in = init_windows(rows, cols);
+    panel_data_sign_up = init_windows(rows, cols);
+    panel_data_chat = init_windows(rows, cols);
 
 
     current_panel_data = panel_data_menu;
@@ -254,7 +236,6 @@ int main() {
                 werase(panel_data_chat->win);
                 wrefresh(panel_data_chat->win);
 
-//                int scroll_position = 0;
 //                // 定义聊天记录窗口大小
                 int board_height = LINES - INPUT_HEIGHT - 1;
 
@@ -310,16 +291,11 @@ int main() {
                         wrefresh(panel_data_chat->win);
                         wrefresh(msg_win_others);
                     }
-
-
-
-
-
+                    werase(input_win);
 
                 }
 
                 delwin(msg_win_others);
-//                delwin(msg_win_me);
                 delwin(input_win);
 
                 close(client_socket);
@@ -359,43 +335,23 @@ void init_ncurses() {
     start_y = (rows - CHAT_ART_HIGH) / 2;
 }
 
-PanelData *init_windows(InputHandler handle_input) {
+PanelData *init_windows(int height, int width) {
 
-    WINDOW *win = newwin(rows, cols, 0, 0);
+    WINDOW *win = newwin(height, width, 0, 0);
     PANEL *panel = new_panel(win);
     PanelData *panel_data = (PanelData *) malloc(sizeof(PanelData));
 
     panel_data->win = win;
     panel_data->panel = panel;
-    panel_data->handle_input = handle_input_menu;
+    panel_data->height = height;
+    panel_data->width = width;
 
     // 设置键盘响应模式
     keypad(panel_data->win, TRUE);
 
-//    mvwprintw(panel_data->win, 2, 2, "y:%d, x: %d", LINES, COLS);
     return panel_data;
 }
 
-void handle_input_menu(int ch, PanelData *panel_data) {
-    wprintw(panel_data->win, "Panel 1 handle: %c\n", ch);
-    wrefresh(panel_data->win);
-}
-
-void handle_input_sign_in(int ch, PanelData *panel_data) {
-    wprintw(panel_data->win, "Panel 2 handle: %c\n", ch);
-    wrefresh(panel_data->win);
-}
-
-
-void handle_input_sign_up(int ch, PanelData *panel_data) {
-    wprintw(panel_data->win, "Panel 2 handle: %c\n", ch);
-    wrefresh(panel_data->win);
-}
-
-void handle_input_chat(int ch, PanelData *panel_data) {
-    wprintw(panel_data->win, "Panel 2 handle: %c\n", ch);
-    wrefresh(panel_data->win);
-}
 
 void print_art(WINDOW *win, const char *art_word[], int lines, int y, int x) {
     for (int i = 0; i < lines; i++) {
