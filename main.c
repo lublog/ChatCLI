@@ -3,7 +3,7 @@
 #include <panel.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread/qos.h>
+//#include <pthread/qos.h>
 #include "word_art.h"
 #include "client.h"
 #include <pthread.h>
