@@ -1,2 +1,2 @@
 all:
-	gcc -o main *.c -lncurses -lpanel
+	gcc -o main *.c -lncurses -lpanel -pthread -std=c99
