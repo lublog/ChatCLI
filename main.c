@@ -3,13 +3,15 @@
 #include <panel.h>
 #include <stdlib.h>
 #include <string.h>
-//#include <pthread/qos.h>
 #include "word_art.h"
 #include "client.h"
 #include <pthread.h>
 #include <sys/socket.h>
 #include <errno.h>
 #include <unistd.h>
+
+// 为了使用int32_t
+#include <stdint.h>
 
 /*
  * 变量声明
@@ -55,7 +57,7 @@ PanelData *panel_data_sign_up;
 WINDOW *msg_win_others;
 WINDOW *msg_win_me;
 // 聊天窗口尺寸
-#define MAX_MESSAGES 50
+#define MAX_MESSAGES 30
 #define MSG_WIDTH 50
 #define INPUT_HEIGHT 3
 
@@ -188,7 +190,7 @@ int main() {
                 case 'q':
                     endwin();
                     exit(0);
-                case '\n':
+                default :
                     if (current_option == 0) {
                         current_panel_data = panel_data_sign_in;
 
@@ -229,8 +231,8 @@ int main() {
                 werase(panel_data_chat->win);
                 wrefresh(panel_data_chat->win);
 
-//                // 定义聊天记录窗口大小
-                int board_height = LINES - INPUT_HEIGHT - 1;
+                // 定义聊天记录窗口大小
+                int board_height = rows - INPUT_HEIGHT - 2;
 
                 // 定义输入窗口
                 WINDOW *input_win = newwin(INPUT_HEIGHT, cols, board_height, 0);
@@ -244,12 +246,16 @@ int main() {
 
                 while (is_running) {
                     // 打印其他人的信息
-                    msg_win_others = newwin(board_height, cols / 2, 0, 0);
+                    msg_win_others = newwin(board_height-2, (cols / 2)-1, 1, 1);
+
 
                     // 打印输入框
                     mvwprintw(input_win, 1, 1, "Input your msg: ");
                     box(input_win, 0, 0);
+
+                    curs_set(0);
                     wrefresh(input_win);
+                    wrefresh(panel_data_chat->win);
 
                     //定义输入消息
                     char input[MSG_WIDTH - 1];
@@ -276,6 +282,9 @@ int main() {
                         add_message(messages_me, &num_msgs_me, msg_cat);
 
                         print_messages(panel_data_chat->win, messages_me, num_msgs_me);
+
+                        curs_set(0);
+                        mvwprintw(panel_data_chat->win, rows-2, 1, "Send '/q' to quit.");
 
                         pthread_create(&tid, NULL, receive_messages, msg_win_others);
                         print_messages(msg_win_others, messages_others, num_msgs_others);
@@ -365,6 +374,7 @@ void add_to_menu(PanelData *panel_data) {
 /* 注册用户 */
 int register_user(const char *username) {
     FILE *fp = fopen("usernames.txt", "a+");
+    rewind(fp);
     if (fp == NULL) {
 //        printf("Error: Failed to open file.\n");
         return 2;
@@ -373,7 +383,11 @@ int register_user(const char *username) {
     /* 检查用户名是否已经存在 */
     char line[MAX_USERNAME_LENGTH];
     while (fgets(line, MAX_USERNAME_LENGTH, fp)) {
+        // 去掉换行符
+        strtok(line, "\n");
         if (strcmp(line, username) == 0) {
+            // 调试使用
+//            mvwprintw(panel_data_sign_up->win, 3, 3, "Error: Username already exists.");
 //            printf("Error: Username already exists.\n");
             fclose(fp);
             return 1;
@@ -419,7 +433,10 @@ void add_to_sign_in(PanelData *panel_data) {
     curs_set(1);
     echo();
 
+    attron(A_BOLD);
     mvwprintw(panel_data->win, 0, 0, "sign in");
+    attron(A_BOLD);
+
     char input_str[INPUT_MAX + 1];  // 定义输入框字符串
 
     mvwprintw(panel_data->win, rows / 2, (cols - 20) / 2, "Please input your name:");
@@ -434,7 +451,7 @@ void add_to_sign_in(PanelData *panel_data) {
         mvwprintw(panel_data->win, rows - 3, 0, "Your user name is: %s", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press 'c' to Chat!");
         mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
-        mvwprintw(panel_data->win, 2, 2, "return 0");
+//        mvwprintw(panel_data->win, rows - 4, 0, "rows: %d", rows);
         strcpy(current_username, input_str);
     } else {
         mvwprintw(panel_data->win, rows - 3, 0, "The user name does not exist", input_str);
@@ -465,7 +482,9 @@ void add_to_sign_up(PanelData *panel_data) {
     curs_set(1);
     echo();
 
+    attron(A_BOLD);
     mvwprintw(panel_data->win, 0, 0, "sign up");
+    attron(A_BOLD);
     char input_str[INPUT_MAX + 1];  // 定义输入框字符串
 
     mvwprintw(panel_data->win, rows / 2, (cols - 20) / 2, "Please input your name:");
@@ -480,7 +499,6 @@ void add_to_sign_up(PanelData *panel_data) {
         mvwprintw(panel_data->win, rows - 3, 0, "Your user name is: %s", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press any key to sign in!");
         mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit!");
-        mvwprintw(panel_data->win, 2, 2, "return 0");
     } else {
         mvwprintw(panel_data->win, rows - 3, 0, "Your user name is: %s, but it have been used!", input_str);
         mvwprintw(panel_data->win, rows - 2, 0, "Press 'n' to type again.");
@@ -508,6 +526,7 @@ void add_to_sign_up(PanelData *panel_data) {
 
 void add_to_chat(PanelData *panel_data) {
     mvwprintw(panel_data->win, rows/2, (cols-25)/2, "Your user name is : %s", current_username);
+    mvwprintw(panel_data->win, rows - 2, 0, "Press any key to chat.");
     mvwprintw(panel_data->win, rows - 1, 0, "Press 'q' to quit.");
 
     wrefresh(panel_data->win);
@@ -521,7 +540,6 @@ void add_to_chat(PanelData *panel_data) {
         default: {
             // 进入聊天室
             current_panel_data = panel_data_chat;
-
             break;
         }
     }
@@ -536,7 +554,7 @@ void print_messages(WINDOW *msg_win, char messages[MAX_MESSAGES][MSG_WIDTH], int
     werase(msg_win);
     for (int i = 0; i < num_msgs; i++) {
         if(messages == messages_me) {
-            mvwprintw(msg_win, i + 1, cols / 2, messages[i]);
+            mvwprintw(msg_win, i + 2, cols / 2, messages[i]);
         } else{
             mvwprintw(msg_win, i + 1, 1, messages[i]);
         }
@@ -563,7 +581,7 @@ void add_message(char messages[MAX_MESSAGES][MSG_WIDTH], int *num_msgs, const ch
 
 void *receive_messages(void *win_output) {
     char buf[BUF_SIZE];
-    int num_bytes;
+    int64_t num_bytes;
 
     while (is_running) {
         if ((num_bytes = recv(client_socket, buf, BUF_SIZE, 0)) > 0) {
