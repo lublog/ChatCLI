@@ -9,6 +9,8 @@
 #include <sys/socket.h>
 #include <errno.h>
 #include <unistd.h>
+#include <wchar.h>
+#include <locale.h>
 
 // 为了使用int32_t
 #include <stdint.h>
@@ -143,7 +145,7 @@ int main() {
     panel_data_chat = init_windows(rows, cols);
 
     // 初始化与选项(登录/注册)相关的变量
-    char *options[] = {"Sign in", "Sign up"};
+    wchar_t *options[] = {L"登陆", L"注册"};
     int option_count = sizeof(options) / sizeof(char *);
     int current_option = 0;
 
@@ -164,10 +166,11 @@ int main() {
                     wattron(panel_data_menu->win, A_REVERSE);  // 被选中的选项加粗
                 }
                 if (i == 0) {
-                    mvwprintw(panel_data_menu->win, start_y + n_lines + 2, start_x, "Sign in");
+                    mvaddnwstr(start_y + n_lines + 2, start_x, options[i], wcslen(options[i]));
+                    mvwprintw(panel_data_menu->win, start_y + n_lines + 2, start_x, "%s", options[i]);
                 } else {
                     // 这里的95是暂定的 代表sign up 选项的横坐标位置
-                    mvwprintw(panel_data_menu->win, start_y + n_lines + 2, 95, "Sign up");
+                    mvwprintw(panel_data_menu->win, start_y + n_lines + 2, 95, "%s", options[i]);
                 }
                 wattroff(panel_data_menu->win, A_REVERSE);
             }
