@@ -14,7 +14,7 @@
 
 bool exit_flag = false;
 struct sockaddr_in server_address;
-
+int client_socket;
 
 /*
  * set up client socket

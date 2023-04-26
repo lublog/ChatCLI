@@ -17,6 +17,7 @@
  * 变量声明
  */
 
+extern int client_socket;
 // 宏定义
 #define INPUT_MAX 20  // 定义输入框最大长度
 #define MAX_USERNAME_LENGTH 20

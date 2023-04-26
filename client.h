@@ -10,7 +10,6 @@
 #define SERVER_PORT 8888
 #define BUF_SIZE 1024
 
-int client_socket;
 
 
 
