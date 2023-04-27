@@ -245,6 +245,8 @@ int main() {
                 // 客户端初始化
                 client_socket = setup_client();
 
+                pthread_create(&tid, NULL, receive_messages, msg_win_others);
+
                 while (is_running) {
                     // 打印其他人的信息
                     msg_win_others = newwin(board_height-2, (cols / 2)-1, 1, 1);
@@ -287,7 +289,7 @@ int main() {
                         curs_set(0);
                         mvwprintw(panel_data_chat->win, rows-2, 1, "Send '/q' to quit.");
 
-                        pthread_create(&tid, NULL, receive_messages, msg_win_others);
+//                        pthread_create(&tid, NULL, receive_messages, msg_win_others);
                         print_messages(msg_win_others, messages_others, num_msgs_others);
                         // 刷新聊天记录
 
